@@ -1,8 +1,8 @@
 streamlit
 pandas
 numpy
+joblib
+altair
+google-genai
 scikit-learn
 xgboost
-joblib 
-altair
-requests
