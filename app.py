@@ -2,11 +2,11 @@
 # STEP 1: Import required libraries
 # ================================
 import streamlit as st
+import os
 import pandas as pd
 import numpy as np
 import joblib
-import requests
-import os
+from google import genai
 import altair as alt
 
 
@@ -395,41 +395,38 @@ st.markdown("""
 
 
 # ================================
-# STEP 6a: Function to talk to Gemini API
+# STEP 6a: Gemini API configuration
 # ================================
-def ask_local_llm(prompt):
+def ask_gemini(prompt):
     """
-    Sends a prompt to Gemini API and returns its text response.
-    The function name is kept unchanged so the rest of the app remains untouched.
+    Sends a prompt to Gemini through the official Google GenAI Python SDK
+    and returns the generated text response.
+
+    The API key must be stored as GEMINI_API_KEY in Streamlit Secrets
+    (recommended for Streamlit Cloud) or as an environment variable.
     """
     try:
+        # Streamlit Cloud: st.secrets
+        # Local development: environment variable
         api_key = st.secrets.get("GEMINI_API_KEY") or os.getenv("GEMINI_API_KEY")
 
         if not api_key:
-            return "⚠️ Gemini API key not found. Add GEMINI_API_KEY to Streamlit secrets or environment variables."
+            return (
+                "⚠️ Gemini API key not found. "
+                "Add GEMINI_API_KEY to Streamlit Secrets."
+            )
 
-        response = requests.post(
-            "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
-            headers={
-                "x-goog-api-key": api_key,
-                "Content-Type": "application/json"
-            },
-            json={
-                "contents": [
-                    {
-                        "parts": [
-                            {"text": prompt}
-                        ]
-                    }
-                ]
-            },
-            timeout=60
+        client = genai.Client(api_key=api_key)
+
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=prompt
         )
 
-        response.raise_for_status()
-        response_data = response.json()
+        if response.text:
+            return response.text
 
-        return response_data["candidates"][0]["content"]["parts"][0]["text"]
+        return "Sorry, Gemini did not return a response."
 
     except Exception as e:
         return f"⚠️ Could not reach Gemini API. Error: {e}"
@@ -627,7 +624,7 @@ if st.session_state.prediction_made:
 
 
 # ================================
-# STEP 7: Chat box powered by local LLM
+# STEP 7: Chat box powered by Gemini AI
 # ================================
 if st.session_state.prediction_made:
     st.write("---")
@@ -685,7 +682,7 @@ Give a short, clear, non-technical answer, and if relevant, give 1-2 practical t
 """
             with st.chat_message("assistant", avatar="🛡️"):
                 with st.spinner("Thinking..."):
-                    llm_response = ask_local_llm(context_prompt)
+                    llm_response = ask_gemini(context_prompt)
                     st.write(llm_response)
 
 
