@@ -6,6 +6,7 @@ import pandas as pd
 import numpy as np
 import joblib
 import requests
+import os
 import altair as alt
 
 
@@ -394,26 +395,44 @@ st.markdown("""
 
 
 # ================================
-# STEP 6a: Function to talk to the local LLM (Ollama)
+# STEP 6a: Function to talk to Gemini API
 # ================================
 def ask_local_llm(prompt):
     """
-    Sends a prompt to the locally running Ollama model and returns its text response.
-    Make sure Ollama is running in the background (ollama serve / ollama run llama3.2).
+    Sends a prompt to Gemini API and returns its text response.
+    The function name is kept unchanged so the rest of the app remains untouched.
     """
     try:
+        api_key = st.secrets.get("GEMINI_API_KEY") or os.getenv("GEMINI_API_KEY")
+
+        if not api_key:
+            return "⚠️ Gemini API key not found. Add GEMINI_API_KEY to Streamlit secrets or environment variables."
+
         response = requests.post(
-            "http://localhost:11434/api/generate",
+            "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
+            headers={
+                "x-goog-api-key": api_key,
+                "Content-Type": "application/json"
+            },
             json={
-                "model": "llama3.2:latest",
-                "prompt": prompt,
-                "stream": False
-            }
+                "contents": [
+                    {
+                        "parts": [
+                            {"text": prompt}
+                        ]
+                    }
+                ]
+            },
+            timeout=60
         )
+
+        response.raise_for_status()
         response_data = response.json()
-        return response_data.get("response", "Sorry, no response received from the model.")
+
+        return response_data["candidates"][0]["content"]["parts"][0]["text"]
+
     except Exception as e:
-        return f"⚠️ Could not reach local LLM. Make sure Ollama is running. Error: {e}"
+        return f"⚠️ Could not reach Gemini API. Error: {e}"
 
 
 
